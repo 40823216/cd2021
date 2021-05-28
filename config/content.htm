@@ -151,6 +151,16 @@
 <h2>w10</h2>
 <p>tesk1</p>
 <p>參考<a href="https://40823245.github.io/cd2021/content/W10.html">40823245</a>的程式，進而修改。</p>
+<p>將if/elif return</p>
+<pre class="brush:py;auto-links:false;toolbar:false" contenteditable="false">    if account == "40823231":      
+        return account + "-2"
+    elif account[0:3] == "407":
+        return "s" + account</pre>
+<p><span>改為date = [a.replace('需要修改的' ， '修改後的' </span><span>) for a in date]</span></p>
+<pre class="brush:py;auto-links:false;toolbar:false" contenteditable="false"> data = [a.replace('40823231','40823231-2') for a in data]      #將40823231換成40823231-2
+    data = [a.replace('407','s407') for a in data]     #將有407的學號換成s407
+</pre>
+<p>修改後的程式</p>
 <pre class="brush:py;auto-links:false;toolbar:false" contenteditable="false">def stu2b(account):
  return account
 teamb = []
