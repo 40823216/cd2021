@@ -279,8 +279,7 @@ print(output)     #輸出</pre>
 <p>rodoDK測試</p>
 <p>將老師所要求的機械手臂取放物件專案學習流程先在roboDK中先行模擬</p>
 <p><iframe allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="allowfullscreen" frameborder="0" height="315" src="https://www.youtube.com/embed/vkGtqCK_T8s" title="YouTube video player" width="560"></iframe></p><h2>w14</h2>
-<h2>w15</h2>
-<h2>w16</h2>
+<h2>w15</h2><h2>w16</h2>
 <p>按照要做MTB_robot 的取放方塊流程規劃</p>
 <p>1.先在onshape上繪圖:</p>
 <p>第一版網址:<a href="https://cad.onshape.com/documents/f4afea7241627fed2d09dbb8/w/5a197b265cd8bd00f2d66367/e/9e17207c8fe860015e3fbc8d">onshape網址</a> </p>
@@ -290,7 +289,178 @@ print(output)     #輸出</pre>
 <p>第二版stl壓縮檔:<a href="/downloads/MTB_robot_第二版.zip">MTB_robot_第二版</a></p>
 <p><img alt="" height="394" src="/images/mtb_robot_第二版.PNG" width="800"/></p>
 <p>onshape_影片</p>
-<p><iframe allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="allowfullscreen" frameborder="0" height="315" src="https://www.youtube.com/embed/4LYCE1EIGYY" title="YouTube video player" width="560"></iframe></p><h1>w5</h1>
+<p><iframe allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="allowfullscreen" frameborder="0" height="315" src="https://www.youtube.com/embed/4LYCE1EIGYY" title="YouTube video player" width="560"></iframe></p>
+<p>2. 建立 CoppeliaSim 4.1.0 MTB robot 場景</p>
+<p>3. 手臂末端加入 components-gripper-suction pad 吸盤</p>
+<p>4. 逆向運動學函式</p>
+<p>主程式+副程式(moving)</p>
+<pre class="brush:html;auto-links:false;toolbar:false" contenteditable="false">function moving(x,y)
+  a=0.4
+  b=0.4
+  c=math.pow((math.pow(x,2)+math.pow(y,2)),0.5)
+  s=(a+b+c)/2
+  area=math.pow((s*(s-a)*(s-b)*(s-c)),0.5)
+  h=area/(2*c)
+  deg1_base=math.atan(x/y)
+  if x&lt;0 and y&lt;0 then
+     deg1_base=deg1_base+math.pi
+  end
+  deg1_tri=math.asin(h/a)
+  deg1=deg1_base+deg1_tri
+  deg2=math.pi-(0.5*math.pi-deg1_tri)-math.acos(h/b)
+  deg3=deg2-deg1
+  sim.setJointTargetPosition(joint01,deg1)
+  sim.setJointTargetPosition(joint02,-deg2)
+  sim.setJointTargetPosition(joint03,deg3)
+end
+
+function sysCall_threadmain()
+  t=1                                                             //延遲時間T=1
+  joint01=sim.getObjectHandle('joint1')           //設定軸得名稱和是哪個軸
+  joint02=sim.getObjectHandle('joint2')
+  joint03=sim.getObjectHandle('joint3')
+  jointz=sim.getObjectHandle('jointz')
+  sim.setJointTargetPosition(joint01,0)            //將所有軸都歸0
+  sim.setJointTargetPosition(joint02,0)
+  sim.setJointTargetPosition(joint03,0)
+  sim.setJointTargetPosition(jointz,0)
+  sim.setIntegerSignal("pad_switch",1)           //吸盤吸住的程式
+  sim.setJointTargetPosition(jointz,-0.035)      //吸盤下降3.5mm
+  sim.wait(t)                                                 //延遲時間(t)
+  sim.setJointTargetPosition(jointz,0)         
+  sim.wait(t)
+  while sim.getSimulationState()~=sim.simulation_advancing_abouttostopre do   //lua迴圈程式
+  moving(0.2,0.7)                                        //所求的x.y座標
+  sim.wait(t)
+  sim.setIntegerSignal("pad_switch",0)         
+  sim.wait(t)
+  sim.setIntegerSignal("pad_switch",1)
+  sim.setJointTargetPosition(jointz,-0.035)
+  sim.wait(t)
+  sim.setJointTargetPosition(jointz,0)
+  sim.wait(t)
+  moving(-0.3,-0.55)
+  sim.wait(t)
+  sim.setIntegerSignal("pad_switch",1)
+  sim.wait(t)
+  sim.setIntegerSignal("pad_switch",1)
+  sim.setJointTargetPosition(jointz,-0.035)
+  sim.wait(t)
+  sim.setJointTargetPosition(jointz,0)
+  sim.wait(t)
+  end
+  
+end
+
+function sysCall_cleanup()
+    -- Put some clean-up code here
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
+</pre>
+<p>吸盤程式</p>
+<pre class="brush:html;auto-links:false;toolbar:false" contenteditable="false">--參考40823214的程式
+function sysCall_init() 
+    objectHandle=sim.getObjectHandle('suctionPad')
+    sim.setUserParameter(objectHandle,'@enable','')
+    modelBase=sim.getObjectAssociatedWithScript(sim.handle_self)
+    robotBase=modelBase
+    while true do
+        robotBase=sim.getObjectParent(robotBase)
+        if robotBase==-1 then
+            robotName='Dobot'
+            break
+        end
+        robotName=sim.getObjectName(robotBase)
+        suffix,suffixlessName=sim.getNameSuffix(robotName)
+        if suffixlessName=='Dobot' then
+            break
+        end
+    end
+
+    s=sim.getObjectHandle('suctionPadSensor')
+    l=sim.getObjectHandle('suctionPadLoopClosureDummy1')
+    l2=sim.getObjectHandle('suctionPadLoopClosureDummy2')
+    b=sim.getObjectHandle('suctionPad')
+    suctionPadLink=sim.getObjectHandle('suctionPadLink')
+    local gripperBase=sim.getObjectAssociatedWithScript(sim.handle_self)
+
+    infiniteStrength=sim.getScriptSimulationParameter(sim.handle_self,'infiniteStrength')
+    maxPullForce=sim.getScriptSimulationParameter(sim.handle_self,'maxPullForce')
+    maxShearForce=sim.getScriptSimulationParameter(sim.handle_self,'maxShearForce')
+    maxPeelTorque=sim.getScriptSimulationParameter(sim.handle_self,'maxPeelTorque')
+
+    sim.setLinkDummy(l,-1)
+    sim.setObjectParent(l,b,true)
+    m=sim.getObjectMatrix(l2,-1)
+    sim.setObjectMatrix(l,-1,m)
+end
+
+function sysCall_cleanup() 
+    sim.setLinkDummy(l,-1)
+    sim.setObjectParent(l,b,true)
+    m=sim.getObjectMatrix(l2,-1)
+    sim.setObjectMatrix(l,-1,m)
+end 
+
+function sysCall_sensing() 
+    parent=sim.getObjectParent(l)
+    local sig=sim.getIntegerSignal("pad_switch")
+    if (not sig) or (sig==0) then
+        if (parent~=b) then
+            sim.setLinkDummy(l,-1)
+            sim.setObjectParent(l,b,true)
+            m=sim.getObjectMatrix(l2,-1)
+            sim.setObjectMatrix(l,-1,m)
+        end
+    else
+        if (parent==b) then
+            index=0
+            while true do
+                shape=sim.getObjects(index,sim.object_shape_type)
+                if (shape==-1) then
+                    break
+                end
+                local res,val=sim.getObjectInt32Parameter(shape,sim.shapeintparam_respondable)
+                if (shape~=b) and (val~=0) and (sim.checkProximitySensor(s,shape)==1) then
+                    -- Ok, we found a respondable shape that was detected
+                    -- We connect to that shape:
+                    -- Make sure the two dummies are initially coincident:
+                    sim.setObjectParent(l,b,true)
+                    m=sim.getObjectMatrix(l2,-1)
+                    sim.setObjectMatrix(l,-1,m)
+                    -- Do the connection:
+                    sim.setObjectParent(l,shape,true)
+                    sim.setLinkDummy(l,l2)
+                    break
+                end
+                index=index+1
+            end
+        else
+            -- Here we have an object attached
+            if (infiniteStrength==false) then
+                -- We might have to conditionally beak it apart!
+                result,force,torque=sim.readForceSensor(suctionPadLink) -- Here we read the median value out of 5 values (check the force sensor prop. dialog)
+                if (result&gt;0) then
+                    breakIt=false
+                    if (force[3]&gt;maxPullForce) then breakIt=true end
+                    sf=math.sqrt(force[1]*force[1]+force[2]*force[2])
+                    if (sf&gt;maxShearForce) then breakIt=true end
+                    if (torque[1]&gt;maxPeelTorque) then breakIt=true end
+                    if (torque[2]&gt;maxPeelTorque) then breakIt=true end
+                    if (breakIt) then
+                        -- We break the link:
+                        sim.setLinkDummy(l,-1)
+                        sim.setObjectParent(l,b,true)
+                        m=sim.getObjectMatrix(l2,-1)
+                        sim.setObjectMatrix(l,-1,m)
+                    end
+                end
+            end
+        end
+    end
+end </pre>
+<p>5. Python remote API 逆向運動學函式</p><h1>w5</h1>
 <p><iframe allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="allowfullscreen" frameborder="0" height="315" src="https://www.youtube.com/embed/tOX5xDafjAc" title="YouTube video player" width="560"></iframe></p>
 <p>設計二甲上台報告時間:</p>
 <p><iframe height="600" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6YXiXIAWRakwmmRrtSF7nDHVwXcrhdVz_Tx8pZ11ktHNc9_G4ELrXaNplIVRAhrvB4pqnetBTbVSH/pubhtml?widget=true&amp;headers=false" width="500"></iframe></p>
